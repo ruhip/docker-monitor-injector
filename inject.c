@@ -13,7 +13,11 @@
 #include <stdbool.h>
 #include <asm-generic/fcntl.h>
 #include <errno.h>
+#include <stdlib.h>
 
+const char* logpath="/root/inject.log";
+int logfd = -1;// open(logpath,O_CREAT|O_RDWR|O_APPEND,0);
+FILE *stream = NULL;
 #define INJECT_TARGETS "CONTAINER_PROC_INJECT_TARGETS"
 #define TMPFILE_MAGIC "E234Dde28Axc"
 #define PROCLEN 100
@@ -22,16 +26,16 @@
 // conflict with our injection
 extern int fcntl(int fd, int cmd, ...);
 
-#ifdef INJECT_DEBUG
+//#ifdef INJECT_DEBUG
 #define DEBUG_LOG(...) do {						\
 			   fprintf(stderr, "%s@%d: ", __FILE__, __LINE__); \
 			   fprintf(stderr, __VA_ARGS__);		\
 			   fprintf(stderr, "\n");			\
 			   } while(0)
-#else
+/*#else
 #define DEBUG_LOG(...)
 #endif
-
+*/
 static void _init() __attribute__((constructor));
 
 typedef ssize_t (*glibc_open)(const char*, int, mode_t);
@@ -114,18 +118,26 @@ static bool is_inject_target() {
   base = basename(exe);
   
   char *targets = getenv(INJECT_TARGETS);
+  char temp[1000] ={0};
+  strcpy(temp,targets);
+  DEBUG_LOG("temp:%s\n",temp);
+  DEBUG_LOG("INJECT_TARGETS:%s\n",targets);
   if (targets) {
     char *target = strtok(targets, ":");
 
     while (target) {
       if (0 == strcmp(base, target)) {
+  strcpy(targets,temp);
+    DEBUG_LOG("base:%s,target:%s,so return true\n",base,target);
 	    return true;
       }
 
       target = strtok(NULL, ":");
     }
   }
-
+  char *targets2 = getenv(INJECT_TARGETS);
+   DEBUG_LOG("INJECT_TARGETS2:%s,%s\n",targets2,targets);
+ strcpy(targets,temp);
   return false;
 }
 
@@ -1257,6 +1269,8 @@ static off_t injected_lseek(int fd, off_t offset, int whence) {
 }
 
 static void _init() {
+  //stderr = open(logpath,O_CREAT|O_RDWR|O_APPEND,0);
+  stream = freopen( logpath, "aw+", stderr );  
   DEBUG_LOG("Init stdlib hijack.");
   inject_open = is_inject_target();
 }
